@@ -1,43 +1,86 @@
 <?php
+// Устанавливаем заголовки CORS
+// header("Access-Control-Allow-Origin: *");
+// // header("Access-Control-Allow-Origin: https://phpmyadmin.topdom-erp.ru");
+// header("Access-Control-Allow-Methods: GET, POST,PATCH");
+// header("Access-Control-Allow-Headers: *");
+
+header('Access-Control-Allow-Origin: *');
+
+header('Access-Control-Allow-Methods: *');
+
+header("Access-Control-Allow-Headers: *");
 
 $method = $_SERVER['REQUEST_METHOD'];
-$jsonData = json_decode(file_get_contents('php://input'), true);
+//Проверяем входящие значения для geta
+if ($method === "GET") {
+    $methodName = isset($_GET['method']) ? $_GET['method'] : "";
+    $data = isset($_GET['data']) ? $_GET['data'] : "";
+    $id = isset($_GET['id']) ? $_GET['id'] : "";
+    $img_type = isset($_GET['img_type']) ? $_GET['img_type'] : "";
+    if ((!empty($id) && !empty($img_type)) || (!empty($id) && !empty($img_type))) {
+        $data = ["id" => $id, "img_type" => $img_type];
+    }
+} else {
+    //Обработчик для получения файлов и дальнешего их добавения
+    if (isset($_POST['method']) && !empty($_POST['method'])) {
+        $methodName = isset($_POST['method']) ? $_POST['method'] : "";
+        $data = [
+            "type" => $_POST['type'],
+            "id" => $_POST['id'],
+            "files" => $_FILES
+        ];
+    } else {
+        $jsonData = json_decode(file_get_contents('php://input'), true);
+        $methodName = isset($jsonData['method']) && !empty($jsonData['method']) ? $jsonData['method'] : "";
+        $data = isset($jsonData['data']) && !empty($jsonData['data']) ? $jsonData['data'] : "";
+    }
 
+}
+//Основная проверка метода данных
 if ($method === 'POST') {
-    // require_once 'postСontroller.php';
-    // $controller = new PostController();
+    require_once 'controllers/postController.php';
+    $controller = new PostController();
 } elseif ($method === 'GET') {
     require_once 'controllers/getController.php';
     $controller = new GetController();
 } elseif ($method === 'PATCH') {
     require_once 'controllers/patchСontroller.php';
     $controller = new PatchController();
+} elseif ($method === 'DELETE') {
+    require_once 'controllers/deleteСontroller.php';
+    $controller = new DeleteController();
 } else {
     $controller = "";
 }
 
-$methodName = isset($jsonData['method']) && !empty($jsonData['method']) ? $jsonData['method'] : "";
-$data = isset($jsonData['data']) && !empty($jsonData['data']) ? $jsonData['data'] : "";
-
 try {
     if (empty($data)) {
         $response = $controller->$methodName();
-    }
-     else {
+        $response = json_encode($response, JSON_UNESCAPED_UNICODE);
+        echo $response = str_replace('\\', '', $response);
+    } else {
         $response = $controller->$methodName($data);
+        $response = json_encode($response, JSON_UNESCAPED_UNICODE);
+        echo $response = str_replace('\\', '', $response);
     }
 } catch (Error $e) {
-    if ($controller==="") {
+    if ($controller === "") {
+        // http_response_code(405);
         $response = "Ошибка: Не поддерживаемый HTTP метод.";
-    }elseif (empty($methodName)) {
+        // var_dump($_POST);
+    } elseif (empty($methodName)) {
+        // http_response_code(405);
         $response = "Ошибка: Не указан метод.";
-    }
-    else{
+        // var_dump($_POST);
+    } else {
+        // http_response_code(405);
         $response = "Ошибка: Данного метода не существует или недоступен. Проверьте метод отправки.";
+        // var_dump($_POST);
     }
 }
 
-echo json_encode($response, JSON_UNESCAPED_UNICODE);
+
 
 // Шпора
 // GET: Используется для получения данных с сервера. Обычно используется 
@@ -63,5 +106,5 @@ echo json_encode($response, JSON_UNESCAPED_UNICODE);
 
 // На будущее
 // Отправка на Cron  запроса на обновление xml файла 
-// 0 0 * * * curl -X PATCH http://phpmyadmin.topdom-erp.ru/TopDomApps-Backend -d '{"method": "createXML"}'
+// 0 0 * * * curl -X PATCH http://phpmyadmin.topdom-erp.ru/TopDomApps-Backend/index.php -d '{"method": "createTurboXML","data":{"id":"1"}}'
 ?>
